@@ -1,0 +1,88 @@
+****************************************************************************************************************************************************************
+Sign 签名生成方法 (a,b两个步骤)
+
+a.支付中将对数据里面的内容进行鉴权，确定携带的信息是真实、有效、合理的。因此，这里将定义生成 sign 字符串的方法。
+对所有传入参数按照字段名的 ASCII 码从小到大排序（字典序） 后，使用 URL 键值对的格式（即 key1=value1&key2=value2…）拼接成字符串 string1，值为空的字段不参与签名。
+
+b.在 string1 最后拼接上 key=Key(商户支付密钥) 得到待签名字符串，并对待签名字符串进行 md5 运算，再将得到的签名字符串所有字符转换为大写，得到 sign 值。
+
+
+测试app_id：3000031117238
+
+测试app_secret：U84wNiT3cIoGW1d6tnyC6VnMMP7XOEh1EZAWy4l9
+
+
+假设传入组装的的JSON内容为：
+
+{\"app_id\":\"340201805050344151\",\"body\":\"body\",\"call\":\"h5\",\"notifyurl\":\"notifyurl\",\"order_id\":\"order_id\",\"paymethod\":\"qq\",\"third\":\"kue\",\"totalfee\":\"1\"}
+
+(1)经过 a 过程 URL 键值对字典序排序后的字符串 string1 为:
+	$string1 = "app_id=app_id&body=body&call=h5&notifyurl=notifyurl&order_id=order_id&paymethod=qq&third=kue&totalfee=1&key=xxxxxx"
+(2)经过 b 过程后得到 sign 为：
+	$sign= strtoupper( md5("{$string1}&key=bb98357d44bb5b31252fd33dd7514a56") ) ;
+
+	$sign = 相当于 strtoupper( md5("app_id=app_id&body=body&call=h5&notifyurl=notifyurl&order_id=order_id&paymethod=qq&third=kue&totalfee=1&key=xxxxxx") ) ;
+
+
+
+	备注： 1.以上是签名的生成方法，发送到服务器还需要经过RAS公钥进行加密与接收信息时的解密. 提供的所有接口都要进行签名与RSA加解密操作.  
+		   2.所有接口都POST发送，回调也是一样。 发送与接收的数据都为JSON请留意
+
+****************************************************************************************************************************************************************
+
+
+
+
+
+
+
+
+
+****************************************************************************************************************************************************************
+
+统一支付异步通知 //参数说明  (只有支付成功的情况下,才调用回调的接口)
+
+	a.商户交易时传的notifyurl参数，支付完成后，HT平台支付会把支付信息发送到该url上，商户需要处理信息 (method: POST,data: JSON)
+
+	2.商户需要对此通知做出响应，当收到商户返回“success”的应答时，HT平台支付才会认为通知成功，否则认为失败，会按一定的策略（1m,1m,5m,10m,1h,6h,12h）重新发起通知。商户需要对接收到的数据优先进行验签处理，确定是从HT平台支付发送的通知后再进行业务方面的处理，因为没有验签而导致的后果商户自行承担。
+
+请求参数:
+
+商户订单号	orderid	是	String(32)	商户系统内部订单号
+HT平台支付订单号	outtranno	是	String(32)	HT平台支付系统流水号
+
+交易金额	orderamt	是	String(12)	订单金额
+交易状态	tradestate	是	String(20)	支付成功：TRADE_SUCCESS
+见附录交易状态枚举
+支付方式	method	是	String(20)	订单支付方式，说明见附录支付方式说明
+交易时间	tradetime	是	String(16)	支付时间，格式yyyyMMddhhmmss
+签名	sign	是	String(32)	生成方法见Sign 签名生成方法
+
+返回参数:
+	
+	商户处理成功后需要返回给HT平台支付“success”来说明处理成功。
+
+
+	银联的回调参数
+
+
+ //返回参数 stateCode 为200情况下 result 下面的参数 { ["stateCode"]=> int(200) ["stateMsg"]=> string(2) "ok" ["stateData"]=> array(1) { ["result"]=> array(17) { ["status"]=> string(1) "1" ["toaccname"]=> string(6) "闫鑫" ["tobankname"]=> string(12) "兴业银行" ["transno"]=> string(27) "201807231931167634450643371" ["transmobile"]=> string(11) "13511111111" ["tocityname"]=> string(12) "呼和浩特" ["returnmsg"]=> string(12) "转账成功" ["agentid"]=> string(3) "340" ["merchantid"]=> string(18) "340201806201057073" ["toaccno"]=> string(18) "622908593031782319" ["toproname"]=> string(9) "内蒙古" ["toaccdept"]=> string(12) "北京支行" ["transcardid"]=> string(18) "142622199303111111" ["returncode"]=> string(4) "0000" ["transsummary"]=> string(6) "代付" ["transmoney"]=> string(1) "0" ["orderId"]=> array(0) { } } } }
+
+
+ 	统一下单返回的参数
+
+        /**
+         *  返回的参数信息
+         *         $data = [
+                        'order_id'  => $this->pay->order_id, //商户订单
+                        'platform_order'    => $this->pay->platform_order, //平台订单
+                        'totalfee'  => $this->pay->totalfee, //订单金额
+                        'tradestate'    => 'TRADE_SUCCESS',   //成功状态
+                        'method'    => $this->pay->channel, //订单方法
+                        'tradetime' => date('Y-m-d H:i:s'), //交易完成时间
+                        'sign'	=> xxxx
+                    ];
+         */
+ 	
+
+****************************************************************************************************************************************************************
